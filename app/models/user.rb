@@ -103,6 +103,8 @@ class User < ApplicationRecord
   has_many :saved_searches
   has_many :forum_posts, lambda {order("forum_posts.created_at")}, :foreign_key => "creator_id"
   has_many :user_name_change_requests, lambda {visible.order("user_name_change_requests.created_at desc")}
+  has_many :bank_transactions
+  has_one :bank_balance
   belongs_to :inviter, :class_name => "User"
   after_update :create_mod_action
   accepts_nested_attributes_for :dmail_filter

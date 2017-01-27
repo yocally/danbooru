@@ -1,6 +1,9 @@
 module DelayedJobsHelper
   def print_name(job)
     case job.name
+    when "BankTransactions::AccountUpgrade.revert_upgrade"
+      ""
+
     when "Tag.increment_post_counts"
       "<strong>increment post counts</strong>"
 
@@ -68,10 +71,7 @@ module DelayedJobsHelper
 
   def print_handler(job)
     case job.name
-    when "Tag.increment_post_counts", "Tag.decrement_post_counts"
-      ""
-
-    when "Post.expire_cache"
+    when "TagSubscription.process", "Post.expire_cache", "Tag.increment_post_counts", "Tag.decrement_post_counts", "BankTransactions::AccountUpgrade.revert_upgrade"
       ""
 
     when "Moderator::TagBatchChange"
