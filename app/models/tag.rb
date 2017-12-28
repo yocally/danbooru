@@ -15,6 +15,8 @@ class Tag < ApplicationRecord
   validates :name, uniqueness: true, tag_name: true, on: :create
   validates_inclusion_of :category, in: TagCategory.category_ids
 
+  after_save :update_category_cache_for_all, if: :category_changed?
+
   module ApiMethods
     def to_legacy_json
       return {
@@ -200,7 +202,7 @@ class Tag < ApplicationRecord
       names.map {|x| find_or_create_by_name(x).name}
     end
 
-    def find_or_create_by_name(name, options = {})
+    def find_or_create_by_name(name, creator: CurrentUser.user)
       name = normalize_name(name)
       category = nil
 
@@ -220,9 +222,8 @@ class Tag < ApplicationRecord
           # next few lines if the category is changed.
           tag.update_category_cache
 
-          if category_id != tag.category && !tag.is_locked? && ((CurrentUser.is_builder? && tag.post_count < 10_000) || tag.post_count <= 50)
-            tag.update_column(:category, category_id)
-            tag.update_category_cache_for_all
+          if tag.editable_by?(creator)
+            tag.update(category: category_id)
           end
         end
 
@@ -811,6 +812,8 @@ class Tag < ApplicationRecord
         else
           sqs = SqsService.new(Danbooru.config.aws_sqs_reltagcalc_url)
           sqs.send_message("calculate #{name}")
+          self.related_tags_updated_at = Time.now
+          save
         end
 
         Cache.put("urt:#{key}", true, 600) # mutex to prevent redundant updates
@@ -948,7 +951,10 @@ class Tag < ApplicationRecord
   end
 
   def editable_by?(user)
-    user.is_builder? || (user.is_member? && post_count <= 50)
+    return true if user.is_admin?
+    return true if !is_locked? && user.is_builder? && post_count < 1_000
+    return true if !is_locked? && user.is_member? && post_count < 50
+    return false
   end
 
   include ApiMethods

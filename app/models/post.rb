@@ -22,6 +22,7 @@ class Post < ApplicationRecord
   validate :removed_tags_are_valid
   validate :has_artist_tag
   validate :has_copyright_tag
+  validate :has_enough_tags
   validate :post_is_not_its_own_parent
   validate :updater_can_change_rating
   before_save :update_tag_post_counts
@@ -712,12 +713,12 @@ class Post < ApplicationRecord
       normalized_tags = remove_negated_tags(normalized_tags)
       normalized_tags = TagAlias.to_aliased(normalized_tags)
       normalized_tags = %w(tagme) if normalized_tags.empty?
-      normalized_tags = TagImplication.with_descendants(normalized_tags)
-      normalized_tags = Tag.create_for_list(add_automatic_tags(normalized_tags))
+      normalized_tags = add_automatic_tags(normalized_tags)
       normalized_tags = normalized_tags + Tag.create_for_list(TagImplication.automatic_tags_for(normalized_tags))
-      normalized_tags = normalized_tags.compact
-      normalized_tags.sort!
-      set_tag_string(normalized_tags.uniq.sort.join(" "))
+      normalized_tags = TagImplication.with_descendants(normalized_tags)
+      normalized_tags = normalized_tags.compact.uniq.sort
+      normalized_tags = Tag.create_for_list(normalized_tags)
+      set_tag_string(normalized_tags.join(" "))
     end
 
     def remove_negated_tags(tags)
@@ -1741,14 +1742,21 @@ class Post < ApplicationRecord
     end
 
     def added_tags_are_valid
-      new_tags = added_tags.select { |t| t.post_count <= 1 }
+      new_tags = added_tags.select { |t| t.post_count <= 0 }
       new_general_tags = new_tags.select { |t| t.category == Tag.categories.general }
       new_artist_tags = new_tags.select { |t| t.category == Tag.categories.artist }
+      repopulated_tags = new_tags.select { |t| (t.category != Tag.categories.general) && (t.category != Tag.categories.meta) && (t.created_at < 1.hour.ago) }
 
       if new_general_tags.present?
         n = new_general_tags.size
         tag_wiki_links = new_general_tags.map { |tag| "[[#{tag.name}]]" }
         self.warnings[:base] << "Created #{n} new #{n == 1 ? "tag" : "tags"}: #{tag_wiki_links.join(", ")}"
+      end
+
+      if repopulated_tags.present?
+        n = repopulated_tags.size
+        tag_wiki_links = repopulated_tags.map { |tag| "[[#{tag.name}]]" }
+        self.warnings[:base] << "Repopulated #{n} old #{n == 1 ? "tag" : "tags"}: #{tag_wiki_links.join(", ")}"
       end
 
       new_artist_tags.each do |tag|
@@ -1785,6 +1793,14 @@ class Post < ApplicationRecord
       return if has_tag?("copyright_request") || tags.any? { |t| t.category == Tag.categories.copyright }
 
       self.warnings[:base] << "Copyright tag is required. Consider adding [[copyright request]] or [[original]]"
+    end
+
+    def has_enough_tags
+      return if !new_record?
+
+      if tags.count { |t| t.category == Tag.categories.general } < 10
+        self.warnings[:base] << "Uploads must have at least 10 general tags. Read [[howto:tag]] for guidelines on tagging your uploads"
+      end
     end
   end
   

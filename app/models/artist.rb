@@ -36,7 +36,7 @@ class Artist < ApplicationRecord
       SITE_BLACKLIST = [
         "artstation.com/artist", # http://www.artstation.com/artist/serafleur/
         "www.artstation.com", # http://www.artstation.com/serafleur/
-        /(?:cdn[ab]?)\.artstation\.com/i, # http://serafleur.artstation.com
+        %r!cdn[ab]?\.artstation\.com/p/assets/images/images!i, # https://cdna.artstation.com/p/assets/images/images/001/658/068/large/yang-waterkuma-b402.jpg?1450269769
         "ask.fm", # http://ask.fm/mikuroko_396
         "bcyimg.com",
         "bcyimg.com/drawer", # https://img9.bcyimg.com/drawer/32360/post/178vu/46229ec06e8111e79558c1b725ebc9e6.jpg
@@ -94,6 +94,7 @@ class Artist < ApplicationRecord
         "nicoseiga.jp",
         "nicoseiga.jp/priv", # http://lohas.nicoseiga.jp/priv/2017365fb6cfbdf47ad26c7b6039feb218c5e2d4/1498430264/6820259
         "nicovideo.jp",
+        "nicovideo.jp/user", # http://www.nicovideo.jp/user/317609
         "nicovideo.jp/user/illust", # http://seiga.nicovideo.jp/user/illust/29075429
         "nijie.info", # http://nijie.info/members.php?id=15235
         "patreon.com", # http://patreon.com/serafleur
